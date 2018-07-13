@@ -1,5 +1,7 @@
-void * operator new (size_t size, void * ptr) { return ptr; }
-
+#pragma once
+#ifdef __AVR__
+#include <Arduino.h>
+extern void * operator new(size_t size, void * ptr);
 namespace nonstd{
   
   template<class T>struct tag{using type=T;};
@@ -180,6 +182,11 @@ namespace nonstd{
       if (table)
         table->destroyer(&data);
     }
+    small_task(const small_task& o):
+      table(o.table)
+    {
+      data = o.data;
+    }
     small_task(small_task&& o):
       table(o.table)
     {
@@ -187,6 +194,11 @@ namespace nonstd{
         table->mover(&o.data, &data);
     }
     small_task(){}
+    small_task& operator=(const small_task& o){
+      this->~small_task();
+      new(this) small_task( move(o) );
+      return *this;
+    }
     small_task& operator=(small_task&& o){
       this->~small_task();
       new(this) small_task( move(o) );
@@ -197,7 +209,27 @@ namespace nonstd{
       return table->invoke(&data, forward<Args>(args)...);
     }
   };
+
+  template<class R, class...Args, size_t sz, size_t algn>
+  inline bool operator==(const small_task<R(Args...), sz, algn>& __f, nullptr_t)
+  { return !static_cast<bool>(__f); }
+
+  /// @overload
+  template<class R, class...Args, size_t sz, size_t algn>
+  inline bool  operator==(nullptr_t, const small_task<R(Args...), sz, algn>& __f)
+  { return !static_cast<bool>(__f); }
+
+  template<class R, class...Args, size_t sz, size_t algn>
+  inline bool operator!=(const small_task<R(Args...), sz, algn>& __f, nullptr_t)
+  { return static_cast<bool>(__f); }
+
+  /// @overload
+  template<class R, class...Args, size_t sz, size_t algn>
+  inline bool operator!=(nullptr_t, const small_task<R(Args...), sz, algn>& __f)
+  { return static_cast<bool>(__f); }
   
   template<class Sig>
   using function = small_task<Sig, sizeof(void*)*4, alignof(void*) >;
 }
+
+#endif
